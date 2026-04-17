@@ -1,7 +1,22 @@
 from django.urls import path
 from .views.gmail import *
+from .views.comedor import *
+from .views.reportePostulantes import *
 
 urlpatterns = [
+    # Gmail
     path('gmail/', gmail),
+    
+    # Cambio de becas en comedor
+    path('comedor/', getStudents),
+    path('getPeriodo/', getPeriodo),
+    path('cambioBeca/', cambioBeca),
+    path('cambioEstado/', cambioEstado),
+    path('getStudentsDni/<str:dni>/', getStudentsDni),
+    path('getStudentsPeriodoDni/<str:dni>/<str:periodo>/', getStudentsPeriodoDni),
+    
+    # Generar reportes de admisión
+    path('generarReportes/<str:idApplicationTerm>/', generarReportes),
+    path('getApplicationTerms/<str:idTerm>/', getApplicationTerms),
 
 ]

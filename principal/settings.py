@@ -81,12 +81,20 @@ WSGI_APPLICATION = "principal.wsgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': 'UNSM.SIGAU.DB',
+        'USER': 'sa',      # El que usas para entrar en DBeaver
+        'PASSWORD': 'uNsM*2o24_SQL', # El que usas para entrar en DBeaver
+        'HOST': '34.176.15.116',
+        'PORT': '1433',
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server', # O la versión 18 si la bajaste
+            'extra_params': 'TrustServerCertificate=yes', # Útil si es un server remoto como el tuyo
+            'schema': 'Admission',
+        },
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

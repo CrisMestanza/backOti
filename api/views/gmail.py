@@ -9,7 +9,98 @@ from email.mime.image import MIMEImage
 from django.conf import settings
 import os
 
+@api_view(['POST'])
+def enviar_correo_simple(request):
+    destinatario = request.data.get('correo')
+    mensaje_usuario = request.data.get('mensaje')
+    asunto = request.data.get('asunto')
 
+    if not destinatario or not mensaje_usuario or not asunto:
+        return Response({
+            "error": "Faltan datos (correo, mensaje o asunto)"
+        }, status=400)
+
+    remitente = "informatica@unsm.edu.pe"
+    password = "jkdn rigo zsel tltj"
+
+    try:
+        # Crear mensaje
+        mensaje = MIMEMultipart()
+        mensaje["From"] = remitente
+        mensaje["To"] = destinatario
+        mensaje["Subject"] = asunto
+
+        html = f"""
+<html>
+<body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f6f8;">
+    
+    <table width="100%" bgcolor="#f4f6f8" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center">
+                
+                <table width="600" bgcolor="#ffffff" cellpadding="0" cellspacing="0" style="border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+                    
+                    <!-- HEADER -->
+                    <tr>
+                        <td style="background:#006633; color:white; text-align:center; padding:20px;">
+                            <h2 style="margin:0;">UNSM - Sistema de Comunicación</h2>
+                        </td>
+                    </tr>
+
+                    <!-- BODY -->
+                    <tr>
+                        <td style="padding:30px; color:#333;">
+                            
+                            <p style="font-size:16px;">
+                                {mensaje_usuario}
+                            </p>
+
+                            <br>
+
+                            <div style="background:#f1f5f9; padding:15px; border-radius:8px;">
+                                <p style="margin:0; font-size:14px;">
+                                    Este es un mensaje enviado desde el sistema institucional.
+                                </p>
+                            </div>
+
+                        </td>
+                    </tr>
+
+                    <!-- FOOTER -->
+                    <tr>
+                        <td style="background:#f9fafb; text-align:center; padding:15px; font-size:12px; color:#777;">
+                            © 2026 UNSM - Todos los derechos reservados
+                        </td>
+                    </tr>
+
+                </table>
+
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
+"""
+
+        mensaje.attach(MIMEText(html, "html"))
+
+        # Conexión SMTP
+        servidor = smtplib.SMTP("smtp.gmail.com", 587)
+        servidor.starttls()
+        servidor.login(remitente, password)
+
+        servidor.sendmail(remitente, destinatario, mensaje.as_string())
+        servidor.quit()
+
+        return Response({
+            "mensaje": "Correo enviado correctamente"
+        })
+
+    except Exception as e:
+        return Response({
+            "error": f"Ocurrió un error: {str(e)}"
+        }, status=500)
 @api_view(['POST'])
 def gmail(request):
     archivo = request.FILES.get('file')

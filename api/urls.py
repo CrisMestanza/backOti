@@ -6,7 +6,7 @@ from .views.reportePostulantes import *
 urlpatterns = [
     # Gmail
     path('gmail/', gmail),
-    
+    path('enviar-correo/', enviar_correo_simple),
     # Cambio de becas en comedor
     path('comedor/', getStudents),
     path('getPeriodo/', getPeriodo),

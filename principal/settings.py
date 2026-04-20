@@ -91,7 +91,7 @@ DATABASES = {
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server', # O la versión 18 si la bajaste
             'extra_params': 'TrustServerCertificate=yes', # Útil si es un server remoto como el tuyo
-            'schema': 'Admission',
+            'schema': 'EconomicManagement',
         },
     }
 }

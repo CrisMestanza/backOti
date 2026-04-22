@@ -22,7 +22,8 @@ urlpatterns = [
     path('getPeriodo/<str:dni>/', getPeriodo),
 
     # Pagos comedor delete
-    path('getPagos/<str:dni>/', getPagos),
-    path('deletePagos/<str:id>/', deletePagos),
     path('getUser/', getUser),
+    path('getPagos/<str:dni>/', getPagos),
+    path('getestudiantedi/<str:dni>/', getStudentDni),
+    path('deletePagos/<str:id>/', deletePagos),
 ]

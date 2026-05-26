@@ -3,6 +3,7 @@ from .views.gmail import *
 from .views.comedor import *
 from .views.reportePostulantes import *
 from .views.pagosComedor import *
+from .views.encuesta import *
 
 urlpatterns = [
     # Gmail
@@ -26,4 +27,14 @@ urlpatterns = [
     path('getPagos/<str:dni>/', getPagos),
     path('getestudiantedi/<str:dni>/', getStudentDni),
     path('deletePagos/<str:id>/', deletePagos),
+
+    # Encuesta
+    path('getencuesta/', getEncuesta),
+    path('getencuestadepartamento/<str:iddepartamentoacademico>/', getEncuestaDepartamento),
+    path('getencuestadocente/<str:dni>/', getEncuestaDocente),
+    path('getdepartamentos/', getDepartamentos),
+    path('getdocentes/<str:dni>/', getDocentes),
+    path('getporencuesta/<str:idencuesta>/', getPorEncuesta),
+    path('getporencuesta/<str:idencuesta>/', getPorEncuesta),
+    path('getencuestas/', getEncuestas),
 ]

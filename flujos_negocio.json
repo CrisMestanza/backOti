@@ -1,0 +1,144 @@
+{
+  "flujos_negocio": [
+    {
+      "nombre_flujo": "Gestión de Comedor y Subvenciones Económicas",
+      "descripcion": "Maneja las solicitudes de los estudiantes para acceder al comedor universitario (cafetería) y los programas de apoyo o subvención económica de Bienestar Institucional.",
+      "tablas": [
+        {
+          "nombre_tabla": "[InstitutionalWelfare].[StudentRequestCafeterias]",
+          "descripcion": "Registra las solicitudes individuales de los estudiantes para acceder al servicio de comedor/cafetería universitaria.",
+          "campos": [
+            "Id (VARCHAR(36), PK)",
+            "StudentId (VARCHAR(36), FK)",
+            "EconomicSubventionProgramId (VARCHAR(36), FK)",
+            "UserProcedureId (VARCHAR(36))",
+            "Status (INT)",
+            "Observation (TEXT)"
+          ],
+          "relaciones": [
+            "StudentId se une con [Generals].[Students].Id mediante INNER JOIN",
+            "EconomicSubventionProgramId se une con [InstitutionalWelfare].[EconomicSubventionPrograms].Id mediante INNER JOIN"
+          ]
+        },
+        {
+          "nombre_tabla": "[InstitutionalWelfare].[EconomicSubventionPrograms]",
+          "descripcion": "Catálogo de los diferentes programas de subvención económica y apoyos vigentes que ofrece la institución.",
+          "campos": [
+            "Id (VARCHAR(36), PK)",
+            "Code (TEXT)",
+            "Name (TEXT)",
+            "BeginDate (DATETIME)",
+            "EndDate (DATETIME)",
+            "Type (INT)",
+            "TermId (VARCHAR(36))",
+            "CampusId (VARCHAR(36))"
+          ],
+          "relaciones": []
+        }
+      ]
+    },
+    {
+      "nombre_flujo": "Trámites Documentarios Académicos",
+      "descripcion": "Administra el ciclo de vida de los trámites, carpetas de procedimientos y solicitudes académicas formales presentadas por los estudiantes.",
+      "tablas": [
+        {
+          "nombre_tabla": "[DocumentaryProcedure].[UserProcedures]",
+          "descripcion": "Historial y estado de los trámites generales iniciados por los usuarios en el sistema de trámite documentario.",
+          "campos": [
+            "Id (VARCHAR(36), PK)",
+            "ProcedureId (VARCHAR(36), FK)",
+            "StudentUserProcedureId (VARCHAR(36), FK)",
+            "DependencyId (VARCHAR(36))",
+            "PaymentId (VARCHAR(36))",
+            "TermId (VARCHAR(36))",
+            "UserId (VARCHAR(450))",
+            "Dni (VARCHAR(8))",
+            "Number (INT)",
+            "Status (INT)",
+            "Comment (TEXT)",
+            "Observation (TEXT)",
+            "ObservationStatus (TEXT)"
+          ],
+          "relaciones": [
+            "ProcedureId se une con [DocumentaryProcedure].[Procedures].Id mediante INNER JOIN",
+            "StudentUserProcedureId se une con [DocumentaryProcedure].[StudentUserProcedures].Id mediante INNER JOIN"
+          ]
+        },
+        {
+          "nombre_tabla": "[DocumentaryProcedure].[StudentUserProcedures]",
+          "descripcion": "Vincula los trámites documentarios específicos con el perfil académico del estudiante, su carrera, ciclo, y si aplica a un programa de subvención.",
+          "campos": [
+            "Id (VARCHAR(36), PK)",
+            "StudentId (VARCHAR(36), FK)",
+            "EconomicSubventionProgramId (VARCHAR(36), FK)",
+            "ActivityType (SMALLINT)",
+            "CareerId (VARCHAR(36))",
+            "StudentSectionId (VARCHAR(36))",
+            "AcademicProgramId (VARCHAR(36))",
+            "CurriculumId (VARCHAR(36))",
+            "TermId (VARCHAR(36))"
+          ],
+          "relaciones": [
+            "StudentId se une con [Generals].[Students].Id mediante INNER JOIN",
+            "EconomicSubventionProgramId se une con [InstitutionalWelfare].[EconomicSubventionPrograms].Id mediante INNER JOIN (Cruza Trámites con Subvenciones)",
+            "Id se une con [DocumentaryProcedure].[UserProcedures].StudentUserProcedureId mediante INNER JOIN"
+          ]
+        },
+        {
+          "nombre_tabla": "[DocumentaryProcedure].[Procedures]",
+          "descripcion": "Catálogo maestro que define los tipos de procedimientos, requisitos, costos, duración y bases legales de los trámites institucionales.",
+          "campos": [
+            "Id (VARCHAR(36), PK)",
+            "Name (TEXT)",
+            "Code (TEXT)",
+            "Description (TEXT)",
+            "Type (SMALLINT)",
+            "Duration (INT)",
+            "Enabled (BOOLEAN)",
+            "EnabledStartDate (DATETIME)",
+            "EnabledEndDate (DATETIME)"
+          ],
+          "relaciones": []
+        }
+      ]
+    },
+    {
+      "nombre_flujo": "Datos de Estudiantes e Identidad",
+      "descripcion": "Tablas principales que almacenan la información de identidad (cuentas de usuario de ASP.NET) y el estado académico actual de los alumnos.",
+      "tablas": [
+        {
+          "nombre_tabla": "[Generals].[Students]",
+          "descripcion": "Esta tabla se encarga de relacionar al estudiante de AspNetUsers en donde está toda su información con la carrera que está, que programa está",
+          "campos": [
+            "Id (VARCHAR(36), PK)",
+            "UserId (VARCHAR(450), FK)",
+            "CareerId (VARCHAR(36))",
+            "AcademicProgramId (VARCHAR(36))",
+            "CurrentAcademicYear (INT)",
+            "Status (INT)",
+            "Condition (SMALLINT)"
+          ],
+          "relaciones": [
+            "UserId se une con [dbo].[AspNetUsers].Id mediante INNER JOIN",
+            "Id se une con [InstitutionalWelfare].[StudentRequestCafeterias].StudentId mediante INNER JOIN (Cruza Estudiantes con Comedor)",
+            "Id se une con [DocumentaryProcedure].[StudentUserProcedures].StudentId mediante INNER JOIN (Cruza Estudiantes con Trámites)"
+          ]
+        },
+        {
+          "nombre_tabla": "[dbo].[AspNetUsers]",
+          "descripcion": "Datos generales de los usuarios ya sea estudiantes, administrativos, docentes",
+          "campos": [
+            "Id (VARCHAR(450), PK)",
+            "UserName (VARCHAR(256))",
+            "Email (VARCHAR(256))",
+            "FullName (VARCHAR(450))",
+            "Dni (VARCHAR(250))",
+            "Address (TEXT)",
+            "IsActive (BOOLEAN)"
+          ],
+          "relaciones": []
+        }
+      ]
+    }
+  ]
+}

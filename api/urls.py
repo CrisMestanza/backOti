@@ -4,7 +4,9 @@ from .views.comedor import *
 from .views.reportePostulantes import *
 from .views.pagosComedor import *
 from .views.encuesta import *
+from .views.egresados import *
 from .views.ordenarpdf import ordenar_pdf
+from .views.escuela import *
 
 urlpatterns = [
     # Gmail
@@ -41,4 +43,12 @@ urlpatterns = [
 
     # Ordenar PDF de caja
     path('ordenarpdf/', ordenar_pdf),
+    
+    # Egresados
+    path('getegresados/', getEgresados),
+    path('getegresado/<str:dni>/', getEgresado),
+    
+    # Escuelas
+    path('getescuelas/', getEscuelas),
+    path('getescuelaspornombre/<str:nombre>/', getEscuelasPorNombre),
 ]

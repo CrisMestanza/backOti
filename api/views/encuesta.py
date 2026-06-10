@@ -59,12 +59,13 @@ def getEncuesta(request):
                     "FullName": row["FullName"],
                     "departamento_academico": row["departamento_academico"],
                     "puntaje_total": 0,
+                    "PBM": 0,
                     "categorias": {}
                 }
 
             # Acumular puntaje total
             docentes[dni]["puntaje_total"] += row["Puntuacion"]
-
+            docentes[dni]["PBM"] += 5
             categoria = row["amarrillo"]
 
             # Inicializar categoría si no existe

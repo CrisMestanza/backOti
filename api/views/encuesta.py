@@ -14,7 +14,8 @@ def getEncuesta(request):
     Obtiene todos los datos con puntaje individual y total por docente
     """
     query = """
-        select s.Name as nombre_encuesta, anu.UserName, anu.FullName, ad.Name as departamento_academico,
+        select 
+        s.Name as nombre_encuesta, anu.UserName, anu.FullName, ad.Name as departamento_academico,
         si.Title as amarrillo, q.Description as pregunta,
         case abu.Description
         when 'Muy de acuerdo' then 5
@@ -32,7 +33,7 @@ def getEncuesta(request):
         inner join AspNetUsers anu on su.UserId = anu.Id 
         inner join Generals.Teachers t on anu.Id = t.UserId 
         inner join [Scale].AcademicDepartments ad on t.AcademicDepartmentId = ad.Id  
-        where s.Id = 'B14512E6-BB5D-4A45-A98B-08DEAD34C078'
+        where (s.Id = 'B14512E6-BB5D-4A45-A98B-08DEAD34C078' OR s.Id = 'F2BC126C-A345-4D41-CF90-08DEAD2C050C')
         order by anu.UserName, si.Title
         """
 
@@ -121,7 +122,7 @@ def getEncuestaDepartamento(request, iddepartamentoacademico=None):
         inner join AspNetUsers anu on su.UserId = anu.Id 
         inner join Generals.Teachers t on anu.Id = t.UserId 
         inner join [Scale].AcademicDepartments ad on t.AcademicDepartmentId = ad.Id  
-        where s.Id = 'B14512E6-BB5D-4A45-A98B-08DEAD34C078' and ad.Id = %s
+        where(s.Id = 'B14512E6-BB5D-4A45-A98B-08DEAD34C078' OR s.Id = 'F2BC126C-A345-4D41-CF90-08DEAD2C050C') and ad.Id = %s
         order by anu.UserName, si.Title
         """
 
@@ -204,7 +205,7 @@ def getEncuestaDocente(request, dni=None):
         inner join AspNetUsers anu on su.UserId = anu.Id 
         inner join Generals.Teachers t on anu.Id = t.UserId 
         inner join [Scale].AcademicDepartments ad on t.AcademicDepartmentId = ad.Id  
-        where s.Id = 'B14512E6-BB5D-4A45-A98B-08DEAD34C078' and anu.Dni = %s
+        where (s.Id = 'B14512E6-BB5D-4A45-A98B-08DEAD34C078' OR s.Id = 'F2BC126C-A345-4D41-CF90-08DEAD2C050C') and anu.Dni = %s
         order by anu.UserName, si.Title
         """
 
@@ -228,10 +229,12 @@ def getEncuestaDocente(request, dni=None):
                     "FullName": row["FullName"],
                     "departamento_academico": row["departamento_academico"],
                     "puntaje_total": 0,
+                    "PBM": 0,
                     "categorias": {}
                 }
 
             docente["puntaje_total"] += row["Puntuacion"]
+            docente["PBM"] += 5
 
             categoria = row["amarrillo"]
 

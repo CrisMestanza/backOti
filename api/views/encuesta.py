@@ -397,11 +397,13 @@ def getPorEncuesta(request, idencuesta=None):
                     "FullName": row["FullName"],
                     "departamento_academico": row["departamento_academico"],
                     "puntaje_total": 0,
+                    "PBM": 0,
                     "categorias": {}
                 }
 
             # Acumular puntaje total
             docentes[dni]["puntaje_total"] += row["Puntuacion"]
+            docentes[dni]["PBM"] += 5
 
             categoria = row["amarrillo"]
 
@@ -430,5 +432,4 @@ def getPorEncuesta(request, idencuesta=None):
     except Exception as e:
         logger.error(f"Error al obtener encuesta: {str(e)}")
         return Response({"error": "Error interno al conectar con la base de datos"}, status=500)
-    
-    
+

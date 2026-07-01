@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "D:\\oti\\front\\oti\\src\\conf",
+      "D:\\oti\\front\\oti\\src\\pages\\encuestas"
+    ]
+  }
+}

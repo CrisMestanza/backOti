@@ -38,7 +38,7 @@ urlpatterns = [
     path('getdepartamentos/', getDepartamentos),
     path('getdocentes/<str:dni>/', getDocentes),
     path('getporencuesta/<str:idencuesta>/', getPorEncuesta),
-    path('getporencuesta/<str:idencuesta>/', getPorEncuesta),
+    path('getencuestafiltro/', getEncuestaFiltro),
     path('getencuestas/', getEncuestas),
 
     # Ordenar PDF de caja

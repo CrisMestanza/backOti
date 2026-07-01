@@ -148,10 +148,12 @@ def getEncuestaDepartamento(request, iddepartamentoacademico=None):
                     "FullName": row["FullName"],
                     "departamento_academico": row["departamento_academico"],
                     "puntaje_total": 0,
+                    "PBM": 0,
                     "categorias": {}
                 }
 
             docentes[dni]["puntaje_total"] += row["Puntuacion"]
+            docentes[dni]["PBM"] += 5
 
             categoria = row["amarrillo"]
 
@@ -431,5 +433,112 @@ def getPorEncuesta(request, idencuesta=None):
 
     except Exception as e:
         logger.error(f"Error al obtener encuesta: {str(e)}")
+        return Response({"error": "Error interno al conectar con la base de datos"}, status=500)
+
+
+# Datos combinando filtro por encuesta y/o departamento
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def getEncuestaFiltro(request):
+    """
+    Obtiene todos los datos con puntaje individual y total por docente,
+    combinando el filtro por encuesta y/o por departamento académico.
+    Si no se envía ninguno de los dos, se comporta como getEncuesta.
+    """
+    idencuesta = request.GET.get('encuesta')
+    iddepartamentoacademico = request.GET.get('departamento')
+
+    where_parts = []
+    params = []
+
+    if idencuesta:
+        where_parts.append("s.Id = %s")
+        params.append(idencuesta)
+    else:
+        where_parts.append(
+            "(s.Id = 'B14512E6-BB5D-4A45-A98B-08DEAD34C078' OR s.Id = 'F2BC126C-A345-4D41-CF90-08DEAD2C050C')"
+        )
+
+    if iddepartamentoacademico:
+        where_parts.append("ad.Id = %s")
+        params.append(iddepartamentoacademico)
+
+    where_clause = " and ".join(where_parts)
+
+    query = f"""
+        select s.Name as nombre_encuesta, anu.UserName, anu.FullName, ad.Name as departamento_academico,
+        si.Title as amarrillo, q.Description as pregunta,
+        case abu.Description
+        when 'Muy de acuerdo' then 5
+        when 'De acuerdo' then 4
+        when 'Ni acuerdo, ni desacuerdo' then 3
+        when 'En desacuerdo' then 2
+        when 'Muy en desacuerdo' then 1
+        ELSE 0 end as Puntuacion,
+        abu.Description as respuesta
+        from Intranet.AnswerByUsers abu
+        inner join Intranet.SurveyUsers su on abu.SurveyUserId = su.Id
+        inner join Intranet.Survey s on su.SurveyId = s.Id
+        inner join Intranet.Question q on abu.QuestionId = q.Id
+        inner join Intranet.SurveyItems si on q.SurveyItemId = si.Id
+        inner join AspNetUsers anu on su.UserId = anu.Id
+        inner join Generals.Teachers t on anu.Id = t.UserId
+        inner join [Scale].AcademicDepartments ad on t.AcademicDepartmentId = ad.Id
+        where {where_clause}
+        order by anu.UserName, si.Title
+        """
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            columns = [col[0] for col in cursor.description]
+            results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+        if not results:
+            return Response({"mensaje": "No se encontraron datos"}, status=404)
+
+        # --- Reestructurar JSON ---
+        docentes = {}
+
+        for row in results:
+            dni = row["UserName"]
+
+            if dni not in docentes:
+                docentes[dni] = {
+                    "nombre_encuesta": row["nombre_encuesta"],
+                    "UserName": row["UserName"],
+                    "FullName": row["FullName"],
+                    "departamento_academico": row["departamento_academico"],
+                    "puntaje_total": 0,
+                    "PBM": 0,
+                    "categorias": {}
+                }
+
+            docentes[dni]["puntaje_total"] += row["Puntuacion"]
+            docentes[dni]["PBM"] += 5
+
+            categoria = row["amarrillo"]
+
+            if categoria not in docentes[dni]["categorias"]:
+                docentes[dni]["categorias"][categoria] = {
+                    "amarrillo": categoria,
+                    "preguntas": []
+                }
+
+            docentes[dni]["categorias"][categoria]["preguntas"].append({
+                "pregunta": row["pregunta"],
+                "Puntuacion": row["Puntuacion"],
+                "respuesta": row["respuesta"]
+            })
+
+        resultado_final = []
+        for docente in docentes.values():
+            docente["categorias"] = list(docente["categorias"].values())
+            resultado_final.append(docente)
+
+        return Response(resultado_final)
+
+    except Exception as e:
+        logger.error(f"Error al obtener encuesta filtrada: {str(e)}")
         return Response({"error": "Error interno al conectar con la base de datos"}, status=500)
 

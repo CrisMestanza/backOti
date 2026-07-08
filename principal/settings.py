@@ -91,10 +91,12 @@ DATABASES = {
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server', # O la versión 18 si la bajaste
             'extra_params': 'TrustServerCertificate=yes', # Útil si es un server remoto como el tuyo
-            'schema': 'EconomicManagement',
+            'schema': 'Enrollment',
         },
     }
 }
+
+#  python manage.py inspectdb Terms
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

@@ -7,6 +7,7 @@ from .views.encuesta import *
 from .views.egresados import *
 from .views.ordenarpdf import ordenar_pdf
 from .views.escuela import *
+from .views.boletas import *
 
 urlpatterns = [
     # Gmail
@@ -51,4 +52,10 @@ urlpatterns = [
     # Escuelas
     path('getescuelas/', getEscuelas),
     path('getescuelaspornombre/<str:nombre>/', getEscuelasPorNombre),
+    
+    # Boletas
+    path('getperiodo_term/', getPeriodoTerm),
+    path('getBoletas/<str:idTerm>/<str:dni>/', getBoletas),
+    
+    
 ]

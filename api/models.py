@@ -506,12 +506,29 @@ class Postulants(models.Model):
     careerid = models.CharField(db_column='CareerId', max_length=36)
     academicprogramid = models.CharField(db_column='AcademicProgramId', max_length=36, blank=True, null=True)
     admissiontypeid = models.CharField(db_column='AdmissionTypeId', max_length=36)
-    applicationtermid = models.CharField(db_column='ApplicationTermId', max_length=36)
+    applicationtermid = models.ForeignKey(
+        'Applicationterms',
+        models.DO_NOTHING,
+        db_column='ApplicationTermId',
+        related_name='postulants',
+    )
     campusid = models.CharField(db_column='CampusId', max_length=36)
     examcampusid = models.CharField(db_column='ExamCampusId', max_length=36, blank=True, null=True)
     channelid = models.CharField(db_column='ChannelId', max_length=36, blank=True, null=True)
-    nationalitycountryid = models.CharField(db_column='NationalityCountryId', max_length=36)
-    studentid = models.CharField(db_column='StudentId', max_length=36, blank=True, null=True)
+    nationalitycountryid = models.ForeignKey(
+        Countries,
+        models.DO_NOTHING,
+        db_column='NationalityCountryId',
+        related_name='postulants_nationality',
+    )
+    studentid = models.ForeignKey(
+        'Students',
+        models.DO_NOTHING,
+        db_column='StudentId',
+        blank=True,
+        null=True,
+        related_name='postulants',
+    )
 
     address = models.TextField(db_column='Address')
     admissionfolder = models.IntegerField(db_column='AdmissionFolder', blank=True, null=True)
@@ -563,3 +580,230 @@ class Postulants(models.Model):
     class Meta:
         managed = False
         db_table = 'Postulants'
+        
+        
+class Payments(models.Model):
+    id = models.CharField(db_column='Id', primary_key=True, max_length=36)  # Field name made lowercase.
+    description = models.TextField(db_column='Description', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    dateissuance = models.DateTimeField(db_column='DateIssuance')  # Field name made lowercase.
+    comcourseid = models.CharField(db_column='ComCourseId', max_length=36)  # Field name made lowercase.
+    nquota = models.IntegerField(db_column='Nquota')  # Field name made lowercase.
+    isissued = models.BooleanField(db_column='Isissued')  # Field name made lowercase.
+    paymentid = models.CharField(db_column='PaymentId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    conceptid = models.CharField(db_column='ConceptId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    currentaccountid = models.CharField(db_column='CurrentAccountId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    entityid = models.CharField(db_column='EntityId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    invoiceid = models.ForeignKey(
+        'Invoices',
+        models.DO_NOTHING,
+        db_column='InvoiceId',
+        blank=True,
+        null=True,
+        related_name='payments',
+    )
+    parentpaymentid = models.ForeignKey(
+        'self',
+        models.DO_NOTHING,
+        db_column='ParentPaymentId',
+        blank=True,
+        null=True,
+        related_name='child_payments',
+    )
+    termid = models.ForeignKey(
+        'Terms',
+        models.DO_NOTHING,
+        db_column='TermId',
+        blank=True,
+        null=True,
+        related_name='payments',
+    )
+    externaluserid = models.CharField(db_column='ExternalUserId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    userid = models.ForeignKey(
+        'Aspnetusers',
+        models.DO_NOTHING,
+        db_column='UserId',
+        blank=True,
+        null=True,
+        related_name='payments',
+    )
+    bankidentifier = models.IntegerField(db_column='BankIdentifier')  # Field name made lowercase.
+    bankagentcode = models.TextField(db_column='BankAgentCode', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    bankcashiercode = models.TextField(db_column='BankCashierCode', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    bankcondition = models.TextField(db_column='BankCondition', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    discount = models.DecimalField(db_column='Discount', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    igvamount = models.DecimalField(db_column='IgvAmount', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    isbankpayment = models.BooleanField(db_column='IsBankPayment')  # Field name made lowercase.
+    wasbankpaymentused = models.BooleanField(db_column='WasBankPaymentUsed')  # Field name made lowercase.
+    wasexonerated = models.BooleanField(db_column='WasExonerated')  # Field name made lowercase.
+    entityloadformatid = models.CharField(db_column='EntityLoadFormatId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    ispartialpayment = models.BooleanField(db_column='IsPartialPayment')  # Field name made lowercase.
+    issuedate = models.DateTimeField(db_column='IssueDate')  # Field name made lowercase.
+    latecharge = models.DecimalField(db_column='LateCharge', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    operationcodeb = models.TextField(db_column='OperationCodeB', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    paymentdate = models.DateTimeField(db_column='PaymentDate', blank=True, null=True)  # Field name made lowercase.
+    operationtype = models.SmallIntegerField(db_column='OperationType')  # Field name made lowercase.
+    duedate = models.DateTimeField(db_column='DueDate', blank=True, null=True)  # Field name made lowercase.
+    quantity = models.DecimalField(db_column='Quantity', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    receipt = models.TextField(db_column='Receipt', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    status = models.SmallIntegerField(db_column='Status')  # Field name made lowercase.
+    subtotal = models.DecimalField(db_column='SubTotal', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    total = models.DecimalField(db_column='Total', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    type = models.SmallIntegerField(db_column='Type')  # Field name made lowercase.
+    createdat = models.DateTimeField(db_column='CreatedAt', blank=True, null=True)  # Field name made lowercase.
+    createdby = models.TextField(db_column='CreatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    updatedat = models.DateTimeField(db_column='UpdatedAt', blank=True, null=True)  # Field name made lowercase.
+    updatedby = models.TextField(db_column='UpdatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    refunddate = models.DateTimeField(db_column='RefundDate', blank=True, null=True)  # Field name made lowercase.
+    siafcode = models.TextField(db_column='SiafCode', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'Payments'
+
+class Invoices(models.Model):
+    id = models.CharField(db_column='Id', primary_key=True, max_length=36)  # Field name made lowercase.
+    externaluserid = models.CharField(db_column='ExternalUserId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    userid = models.ForeignKey(
+        'Aspnetusers',
+        models.DO_NOTHING,
+        db_column='UserId',
+        blank=True,
+        null=True,
+        related_name='invoices',
+    )
+    pettycashid = models.CharField(db_column='PettyCashId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    annulled = models.BooleanField(db_column='Annulled')  # Field name made lowercase.
+    canceled = models.BooleanField(db_column='Canceled')  # Field name made lowercase.
+    clientname = models.TextField(db_column='ClientName', db_collation='Modern_Spanish_CI_AS')  # Field name made lowercase.
+    comment = models.TextField(db_column='Comment', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    date = models.DateTimeField(db_column='Date')  # Field name made lowercase.
+    descount = models.DecimalField(db_column='Descount', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    dni = models.TextField(db_column='Dni', db_collation='Modern_Spanish_CI_AS')  # Field name made lowercase.
+    documenttype = models.SmallIntegerField(db_column='DocumentType')  # Field name made lowercase.
+    pdftemplate = models.SmallIntegerField(db_column='PdfTemplate')  # Field name made lowercase.
+    igvamount = models.DecimalField(db_column='IgvAmount', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    number = models.IntegerField(db_column='Number')  # Field name made lowercase.
+    paymenttype = models.SmallIntegerField(db_column='PaymentType')  # Field name made lowercase.
+    series = models.TextField(db_column='Series', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    subtotal = models.DecimalField(db_column='Subtotal', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    sunatcdrurl = models.TextField(db_column='SunatCdrUrl', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    sunatstatus = models.SmallIntegerField(db_column='SunatStatus', blank=True, null=True)  # Field name made lowercase.
+    sunatticket = models.TextField(db_column='SunatTicket', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    electronicdocumenttype = models.SmallIntegerField(db_column='ElectronicDocumentType', blank=True, null=True)  # Field name made lowercase.
+    totalamount = models.DecimalField(db_column='TotalAmount', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    voucher = models.TextField(db_column='Voucher', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    voucherdate = models.DateTimeField(db_column='VoucherDate', blank=True, null=True)  # Field name made lowercase.
+    voucheramount = models.DecimalField(db_column='VoucherAmount', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    clientid = models.CharField(db_column='ClientId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    createdat = models.DateTimeField(db_column='CreatedAt', blank=True, null=True)  # Field name made lowercase.
+    createdby = models.TextField(db_column='CreatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    updatedat = models.DateTimeField(db_column='UpdatedAt', blank=True, null=True)  # Field name made lowercase.
+    updatedby = models.TextField(db_column='UpdatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'Invoices'
+
+class Invoicedetails(models.Model):
+    id = models.CharField(db_column='Id', primary_key=True, max_length=36)  # Field name made lowercase.
+    invoiceid = models.ForeignKey(
+        'Invoices',
+        models.DO_NOTHING,
+        db_column='InvoiceId',
+        related_name='details',
+    )
+    conceptid = models.CharField(db_column='ConceptId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    currentaccountid = models.CharField(db_column='CurrentAccountId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    description = models.TextField(db_column='Description', db_collation='Modern_Spanish_CI_AS')  # Field name made lowercase.
+    code = models.TextField(db_column='Code', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    quantity = models.DecimalField(db_column='Quantity', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    igvamount = models.DecimalField(db_column='IgvAmount', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    subtotal = models.DecimalField(db_column='SubTotal', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    total = models.DecimalField(db_column='Total', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    createdat = models.DateTimeField(db_column='CreatedAt', blank=True, null=True)  # Field name made lowercase.
+    createdby = models.TextField(db_column='CreatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    updatedat = models.DateTimeField(db_column='UpdatedAt', blank=True, null=True)  # Field name made lowercase.
+    updatedby = models.TextField(db_column='UpdatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'InvoiceDetails'
+
+class Applicationterms(models.Model):
+    id = models.CharField(db_column='Id', primary_key=True, max_length=36)  # Field name made lowercase.
+    termid = models.ForeignKey(
+        'Terms',
+        models.DO_NOTHING,
+        db_column='TermId',
+        related_name='application_terms',
+    )
+    enddate = models.DateTimeField(db_column='EndDate')  # Field name made lowercase.
+    startdate = models.DateTimeField(db_column='StartDate')  # Field name made lowercase.
+    extraenddate = models.DateTimeField(db_column='ExtraEndDate', blank=True, null=True)  # Field name made lowercase.
+    extrastartdate = models.DateTimeField(db_column='ExtraStartDate', blank=True, null=True)  # Field name made lowercase.
+    inscriptionenddate = models.DateTimeField(db_column='InscriptionEndDate')  # Field name made lowercase.
+    inscriptionstartdate = models.DateTimeField(db_column='InscriptionStartDate')  # Field name made lowercase.
+    name = models.TextField(db_column='Name', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    publicationdate = models.DateTimeField(db_column='PublicationDate')  # Field name made lowercase.
+    status = models.IntegerField(db_column='Status')  # Field name made lowercase.
+    reinscriptiondays = models.IntegerField(db_column='ReinscriptionDays')  # Field name made lowercase.
+    waspublished = models.BooleanField(db_column='WasPublished')  # Field name made lowercase.
+    relationid = models.CharField(db_column='RelationId', max_length=50, db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    deletedat = models.DateTimeField(db_column='DeletedAt', blank=True, null=True)  # Field name made lowercase.
+    deletedby = models.TextField(db_column='DeletedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    createdat = models.DateTimeField(db_column='CreatedAt', blank=True, null=True)  # Field name made lowercase.
+    createdby = models.TextField(db_column='CreatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    updatedat = models.DateTimeField(db_column='UpdatedAt', blank=True, null=True)  # Field name made lowercase.
+    updatedby = models.TextField(db_column='UpdatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    absentpercentage = models.DecimalField(db_column='AbsentPercentage', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    conceptid = models.CharField(db_column='ConceptId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    examcount = models.IntegerField(db_column='ExamCount')  # Field name made lowercase.
+    feecount = models.IntegerField(db_column='FeeCount')  # Field name made lowercase.
+    isuniquepayment = models.BooleanField(db_column='IsUniquePayment')  # Field name made lowercase.
+    privateschoolconceptid = models.CharField(db_column='PrivateSchoolConceptId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    publicschoolconceptid = models.CharField(db_column='PublicSchoolConceptId', max_length=36, blank=True, null=True)  # Field name made lowercase.
+    uniquepaymentdiscountamount = models.DecimalField(db_column='UniquePaymentDiscountAmount', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    classenddate = models.DateTimeField(db_column='ClassEndDate', blank=True, null=True)  # Field name made lowercase.
+    classstartdate = models.DateTimeField(db_column='ClassStartDate', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'ApplicationTerms'
+        
+        
+class Terms(models.Model):
+    id = models.CharField(db_column='Id', primary_key=True, max_length=36)  # Field name made lowercase.
+    absencepercentage = models.FloatField(db_column='AbsencePercentage')  # Field name made lowercase.
+    applyadditionalconcepts = models.BooleanField(db_column='ApplyAdditionalConcepts')  # Field name made lowercase.
+    enddate = models.DateTimeField(db_column='EndDate')  # Field name made lowercase.
+    startdate = models.DateTimeField(db_column='StartDate')  # Field name made lowercase.
+    classenddate = models.DateTimeField(db_column='ClassEndDate')  # Field name made lowercase.
+    classstartdate = models.DateTimeField(db_column='ClassStartDate')  # Field name made lowercase.
+    complementaryenrollmentstartdate = models.DateTimeField(db_column='ComplementaryEnrollmentStartDate')  # Field name made lowercase.
+    complementaryenrollmentenddate = models.DateTimeField(db_column='ComplementaryEnrollmentEndDate')  # Field name made lowercase.
+    enrollmentenddate = models.DateTimeField(db_column='EnrollmentEndDate')  # Field name made lowercase.
+    enrollmentstartdate = models.DateTimeField(db_column='EnrollmentStartDate')  # Field name made lowercase.
+    preenrollmentenddate = models.DateTimeField(db_column='PreEnrollmentEndDate')  # Field name made lowercase.
+    preenrollmentstartdate = models.DateTimeField(db_column='PreEnrollmentStartDate')  # Field name made lowercase.
+    rectificationenddate = models.DateTimeField(db_column='RectificationEndDate')  # Field name made lowercase.
+    rectificationstartdate = models.DateTimeField(db_column='RectificationStartDate')  # Field name made lowercase.
+    issummer = models.BooleanField(db_column='IsSummer')  # Field name made lowercase.
+    mingrade = models.DecimalField(db_column='MinGrade', max_digits=18, decimal_places=2)  # Field name made lowercase.
+    name = models.CharField(db_column='Name', max_length=50, db_collation='Modern_Spanish_CI_AS')  # Field name made lowercase.
+    number = models.CharField(db_column='Number', max_length=50, db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    resolutiondate = models.DateTimeField(db_column='ResolutionDate', blank=True, null=True)  # Field name made lowercase.
+    resolutionfile = models.TextField(db_column='ResolutionFile', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    resolutionnumber = models.CharField(db_column='ResolutionNumber', max_length=50, db_collation='Modern_Spanish_CI_AS')  # Field name made lowercase.
+    status = models.IntegerField(db_column='Status')  # Field name made lowercase.
+    year = models.IntegerField(db_column='Year')  # Field name made lowercase.
+    relationid = models.CharField(db_column='RelationId', max_length=50, db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    createdat = models.DateTimeField(db_column='CreatedAt', blank=True, null=True)  # Field name made lowercase.
+    createdby = models.TextField(db_column='CreatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+    updatedat = models.DateTimeField(db_column='UpdatedAt', blank=True, null=True)  # Field name made lowercase.
+    updatedby = models.TextField(db_column='UpdatedBy', db_collation='Modern_Spanish_CI_AS', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'Terms'
+        
+        

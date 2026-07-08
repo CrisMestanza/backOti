@@ -35,7 +35,7 @@ def getBoletas(request, idTerm, dni):
         'Moneda: Soles' AS 'Moneda',
         p2.Description AS 'Descripcion',
         id.Quantity AS 'Cantidad',
-        'UND: UND' AS 'Unidad',
+        'UND' AS 'Unidad',
         id.SubTotal AS 'Precio',
         id.Total AS 'Total',
         i.Subtotal AS 'Sub.Total',

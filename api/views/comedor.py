@@ -393,7 +393,7 @@ def cambioBeca(request):
     # Obtener Estudiante  
     queryAnu = f"""
         SELECT anu.* FROM [UNSM.SIGAU.DB].dbo.AspNetUsers AS anu
-        where anu.DNI = '{dni}' 
+        where anu.UserName = '{dni}' 
     """
     with connection.cursor() as cursor:
         cursor.execute(queryAnu)

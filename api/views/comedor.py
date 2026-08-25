@@ -527,6 +527,7 @@ def cambioBeca(request):
             AND p.Name LIKE '%{sede}%'
             AND p.Name LIKE '%{periodo}%'
             AND p.Name NOT LIKE '%Semibeca%' 
+            AND p.DeletedBy is null
             ORDER BY p.CreatedAt DESC
         """
         
@@ -537,6 +538,7 @@ def cambioBeca(request):
             AND p.Name LIKE '%{sede}%'
             AND p.Name LIKE '%{periodo}%'
             AND p.Name LIKE '%Semibeca%' 
+            AND p.DeletedBy is null
             ORDER BY p.CreatedAt DESC
         """
         
@@ -549,6 +551,7 @@ def cambioBeca(request):
             AND p.Name LIKE '%{sede}%'
             AND p.Name LIKE '%{periodo}%'
             AND p.Name LIKE '%Semibeca%' 
+            AND p.DeletedBy is null
             ORDER BY p.CreatedAt DESC
         """
         
@@ -559,6 +562,7 @@ def cambioBeca(request):
             AND p.Name LIKE '%{sede}%'
             AND p.Name LIKE '%{periodo}%'
             AND p.Name NOT LIKE '%Semibeca%' 
+            AND p.DeletedBy is null
             ORDER BY p.CreatedAt DESC
         """
         

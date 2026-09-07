@@ -5,6 +5,7 @@ import smtplib
 import time
 import re
 import threading
+import uuid
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -12,6 +13,11 @@ from django.conf import settings
 import os
 
 EMAIL_REGEX = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+# Progreso de los envios masivos en curso, en memoria del proceso.
+# job_id -> {total, procesados, actual, enviados, fallidos, terminado}
+ENVIOS_PROGRESO = {}
+ENVIOS_PROGRESO_LOCK = threading.Lock()
 
 @api_view(['POST'])
 def enviar_correo_simple(request):
@@ -150,7 +156,14 @@ def _armar_html_credenciales(nombre_usuario, correo_inst, clave_temporal):
     """
 
 
-def _enviar_correos_masivo(dfPrincipal, nombre_archivo):
+def _actualizar_progreso(job_id, **campos):
+    with ENVIOS_PROGRESO_LOCK:
+        estado = ENVIOS_PROGRESO.get(job_id)
+        if estado is not None:
+            estado.update(campos)
+
+
+def _enviar_correos_masivo(job_id, dfPrincipal, nombre_archivo):
     remitente = "informatica@unsm.edu.pe"
     password = "jkdn rigo zsel tltj"
 
@@ -163,6 +176,11 @@ def _enviar_correos_masivo(dfPrincipal, nombre_archivo):
             footer_bytes = f.read()
     except Exception as e:
         print(f"[{nombre_archivo}] No se pudieron leer las imágenes de cabecera/footer: {e}")
+        _actualizar_progreso(
+            job_id,
+            terminado=True,
+            error_fatal=f"No se pudieron leer las imágenes de cabecera/footer: {e}",
+        )
         return
 
     try:
@@ -171,20 +189,38 @@ def _enviar_correos_masivo(dfPrincipal, nombre_archivo):
         servidor.login(remitente, password)
     except Exception as e:
         print(f"[{nombre_archivo}] No se pudo conectar/autenticar con el servidor SMTP: {e}")
+        _actualizar_progreso(
+            job_id,
+            terminado=True,
+            error_fatal=f"No se pudo conectar/autenticar con el servidor SMTP: {e}",
+        )
         return
 
     enviados = 0
     fallidos = []
 
     for index, fila in dfPrincipal.iterrows():
-        nombre_usuario = fila["APELLIDOS Y NOMBRES"]
+        nombre_usuario = str(fila["APELLIDOS Y NOMBRES"])
         correo_inst = fila["CORREO INSTITUCIONAL"]
         clave_temporal = fila["CONTRASEÑA DE PRIMER SESIÓN"]
         destinatario = fila["EMAIL PERSONAL"]
 
+        _actualizar_progreso(
+            job_id,
+            procesados=index + 1,
+            actual_nombre=nombre_usuario,
+            actual_email=str(destinatario),
+            enviados=enviados,
+            fallidos=list(fallidos),
+        )
+
         if pd.isna(destinatario) or not EMAIL_REGEX.match(str(destinatario).strip()):
             print(f"[{index + 1}] Saltando a {nombre_usuario}: email personal vacío o inválido ({destinatario}).")
-            fallidos.append((str(nombre_usuario), str(destinatario), "email vacío o inválido"))
+            fallidos.append({
+                "nombre": nombre_usuario,
+                "email": str(destinatario),
+                "motivo": "email vacío o inválido",
+            })
             continue
 
         destinatario = str(destinatario).strip()
@@ -208,7 +244,26 @@ def _enviar_correos_masivo(dfPrincipal, nombre_archivo):
 
         except Exception as e:
             print(f"[{index + 1}] Fallo el envío a {nombre_usuario} ({destinatario}): {e}")
-            fallidos.append((str(nombre_usuario), destinatario, str(e)))
+            fallidos.append({
+                "nombre": nombre_usuario,
+                "email": destinatario,
+                "motivo": str(e),
+            })
+            # Reintentar conexion SMTP por si el error la dejo inutilizable
+            try:
+                servidor.noop()
+            except Exception:
+                try:
+                    servidor.quit()
+                except Exception:
+                    pass
+                try:
+                    servidor = smtplib.SMTP("smtp.gmail.com", 587)
+                    servidor.starttls()
+                    servidor.login(remitente, password)
+                except Exception as e_reconexion:
+                    print(f"[{nombre_archivo}] No se pudo reconectar al SMTP, se detiene el envío: {e_reconexion}")
+                    break
             continue
 
     try:
@@ -217,8 +272,18 @@ def _enviar_correos_masivo(dfPrincipal, nombre_archivo):
         pass
 
     print(f"--- [{nombre_archivo}] Envío masivo finalizado: {enviados} enviados, {len(fallidos)} fallidos ---")
-    for nombre_usuario, destinatario, motivo in fallidos:
-        print(f"    Fallido: {nombre_usuario} ({destinatario}) - {motivo}")
+    for f in fallidos:
+        print(f"    Fallido: {f['nombre']} ({f['email']}) - {f['motivo']}")
+
+    _actualizar_progreso(
+        job_id,
+        procesados=len(dfPrincipal),
+        enviados=enviados,
+        fallidos=fallidos,
+        terminado=True,
+        actual_nombre=None,
+        actual_email=None,
+    )
 
 
 @api_view(['POST'])
@@ -236,9 +301,25 @@ def gmail(request):
     except Exception as e:
         return Response({"error": f"No se pudo leer el Excel: {e}"}, status=400)
 
+    job_id = uuid.uuid4().hex
+    total_filas = len(dfPrincipal)
+
+    with ENVIOS_PROGRESO_LOCK:
+        ENVIOS_PROGRESO[job_id] = {
+            "total": total_filas,
+            "procesados": 0,
+            "enviados": 0,
+            "actual_nombre": None,
+            "actual_email": None,
+            "fallidos": [],
+            "terminado": False,
+            "error_fatal": None,
+            "archivo": archivo.name,
+        }
+
     hilo = threading.Thread(
         target=_enviar_correos_masivo,
-        args=(dfPrincipal, archivo.name),
+        args=(job_id, dfPrincipal, archivo.name),
         daemon=True,
     )
     hilo.start()
@@ -246,5 +327,18 @@ def gmail(request):
     return Response({
         "mensaje": "Archivo recibido, el envío de correos se está procesando en segundo plano",
         "nombre": archivo.name,
-        "total_filas": len(dfPrincipal)
+        "total_filas": total_filas,
+        "job_id": job_id,
     })
+
+
+@api_view(['GET'])
+def gmail_progreso(request, job_id):
+    with ENVIOS_PROGRESO_LOCK:
+        estado = ENVIOS_PROGRESO.get(job_id)
+        if estado is None:
+            return Response({"error": "job_id no encontrado"}, status=404)
+        # Copia para no exponer la referencia mutable fuera del lock
+        estado = dict(estado)
+
+    return Response(estado)

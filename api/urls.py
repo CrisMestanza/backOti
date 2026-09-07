@@ -12,6 +12,7 @@ from .views.boletas import *
 urlpatterns = [
     # Gmail
     path('gmail/', gmail),
+    path('gmail/progreso/<str:job_id>/', gmail_progreso),
     path('enviar-correo/', enviar_correo_simple),
     # Cambio de becas en comedor
     path('comedor/', getStudents),

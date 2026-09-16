@@ -1,8 +1,9 @@
 import io
+import re
 import pdfplumber
 import pandas as pd
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -12,6 +13,8 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import HttpResponse
+
+FECHA_REGEX = re.compile(r'\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+del\s+\d{4}', re.IGNORECASE)
 
 
 def _extraer_filas(pdf_bytes):
@@ -34,27 +37,124 @@ def _ordenar_filas(filas):
     return df.sort_values("NRO").reset_index(drop=True)
 
 
-def _generar_pdf(df):
+def _extraer_logo(pdf_bytes):
+    """Recorta y devuelve como imagen (PNG en memoria) el logo de la primera página del PDF original."""
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            page = pdf.pages[0]
+            if not page.images:
+                return None
+            img_obj = page.images[0]
+            bbox = (
+                max(img_obj["x0"], 0),
+                max(img_obj["top"], 0),
+                min(img_obj["x1"], page.width),
+                min(img_obj["bottom"], page.height),
+            )
+            if bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
+                return None
+            recorte = page.crop(bbox)
+            render = recorte.to_image(resolution=200)
+            buf = io.BytesIO()
+            render.original.save(buf, format="PNG")
+            buf.seek(0)
+            return buf
+    except Exception:
+        return None
+
+
+def _extraer_fecha_caja(pdf_bytes):
+    """Busca en la primera página del PDF original una fecha con formato 'dd de mes del yyyy'."""
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            texto = pdf.pages[0].extract_text() or ""
+        match = FECHA_REGEX.search(texto)
+        return match.group(0) if match else ""
+    except Exception:
+        return ""
+
+
+def _extraer_cajero(pdf_bytes):
+    """Toma la última línea de texto no vacía de la última página como nombre del cajero (línea de firma)."""
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            texto = pdf.pages[-1].extract_text() or ""
+        lineas = [l.strip() for l in texto.split("\n") if l.strip()]
+        if not lineas:
+            return ""
+        candidata = lineas[-1]
+        if any(ch.isdigit() for ch in candidata):
+            return ""
+        return candidata
+    except Exception:
+        return ""
+
+
+def _generar_pdf(df, logo_buffer=None, fecha_caja="", cajero=""):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
         leftMargin=1.5 * cm,
         rightMargin=1.5 * cm,
-        topMargin=2 * cm,
+        topMargin=1.5 * cm,
         bottomMargin=2 * cm,
     )
+    ancho_disponible = doc.width
 
     styles = getSampleStyleSheet()
-    titulo_style = ParagraphStyle("titulo", parent=styles["Title"], fontSize=16, spaceAfter=6)
-    subtitulo_style = ParagraphStyle("subtitulo", parent=styles["Normal"], fontSize=12, spaceAfter=12, alignment=1)
-    cell_style = ParagraphStyle("cell", parent=styles["Normal"], fontSize=7.5, leading=10, wordWrap="CJK")
+    nombre_uni_style = ParagraphStyle(
+        "nombre_uni", parent=styles["Normal"], fontSize=13, leading=15,
+        fontName="Helvetica-Bold", textColor=colors.black,
+    )
+    titulo_style = ParagraphStyle(
+        "titulo", parent=styles["Title"], fontSize=22, textColor=colors.black,
+        fontName="Times-Bold", alignment=0,
+    )
+    subtitulo_style = ParagraphStyle(
+        "subtitulo", parent=styles["Normal"], fontSize=14, textColor=colors.black,
+        fontName="Times-Roman", alignment=2,
+    )
+    cell_style = ParagraphStyle(
+        "cell", parent=styles["Normal"], fontSize=7.5, leading=10,
+        wordWrap="CJK", textColor=colors.black,
+    )
+    firma_style = ParagraphStyle(
+        "firma", parent=styles["Normal"], fontSize=10, alignment=1, textColor=colors.black,
+    )
 
-    story = [
-        Paragraph("UNIVERSIDAD NACIONAL DE SAN MARTÍN", titulo_style),
-        Paragraph("CAJA", subtitulo_style),
-        Spacer(1, 0.3 * cm),
-    ]
+    story = []
+
+    # --- Cabecera: logo (recortado del PDF original) + nombre de la universidad ---
+    if logo_buffer is not None:
+        try:
+            logo_img = RLImage(logo_buffer, width=2.3 * cm, height=2.3 * cm)
+            fila_logo = [[logo_img, Paragraph("UNIVERSIDAD NACIONAL<br/>DE SAN MARTÍN", nombre_uni_style)]]
+            tabla_logo = Table(fila_logo, colWidths=[2.8 * cm, ancho_disponible - 2.8 * cm])
+            tabla_logo.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]))
+            story.append(tabla_logo)
+        except Exception:
+            story.append(Paragraph("UNIVERSIDAD NACIONAL DE SAN MARTÍN", nombre_uni_style))
+    else:
+        story.append(Paragraph("UNIVERSIDAD NACIONAL DE SAN MARTÍN", nombre_uni_style))
+
+    story.append(Spacer(1, 0.5 * cm))
+
+    # --- Título CAJA + fecha ---
+    fila_titulo = [[Paragraph("CAJA", titulo_style), Paragraph(fecha_caja, subtitulo_style)]]
+    tabla_titulo = Table(fila_titulo, colWidths=[ancho_disponible * 0.5, ancho_disponible * 0.5])
+    tabla_titulo.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story.append(tabla_titulo)
+    story.append(Spacer(1, 0.4 * cm))
 
     data = [["NRO", "FECHA\nEMISIÓN", "NOMBRE", "CONCEPTO", "ENTRADA", "TIPO PAGO"]]
     total = 0.0
@@ -80,7 +180,7 @@ def _generar_pdf(df):
     col_widths = [3.2 * cm, 2.2 * cm, 5.0 * cm, 8.5 * cm, 2.2 * cm, 2.5 * cm]
     tabla = Table(data, colWidths=col_widths, repeatRows=1)
     tabla.setStyle(TableStyle([
-        ("BACKGROUND",  (0, 0), (-1, 0), colors.HexColor("#1F3864")),
+        ("BACKGROUND",  (0, 0), (-1, 0), colors.black),
         ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
         ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE",    (0, 0), (-1, 0), 8),
@@ -90,14 +190,22 @@ def _generar_pdf(df):
         ("FONTSIZE",    (0, 1), (-1, -1), 7.5),
         ("VALIGN",      (0, 1), (-1, -1), "MIDDLE"),
         ("ALIGN",       (4, 1), (4, -1), "RIGHT"),
-        *[("BACKGROUND", (0, i), (-1, i), colors.HexColor("#EBF0FA")) for i in range(2, len(data) - 1, 2)],
-        ("GRID",        (0, 0), (-1, -1), 0.4, colors.HexColor("#AAAAAA")),
-        ("BACKGROUND",  (0, -1), (-1, -1), colors.HexColor("#D9E1F2")),
+        ("TEXTCOLOR",   (0, 1), (-1, -1), colors.black),
+        *[("BACKGROUND", (0, i), (-1, i), colors.HexColor("#F2F2F2")) for i in range(2, len(data) - 1, 2)],
+        ("GRID",        (0, 0), (-1, -1), 0.4, colors.black),
+        ("BACKGROUND",  (0, -1), (-1, -1), colors.HexColor("#E0E0E0")),
         ("FONTNAME",    (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("LINEABOVE",   (0, -1), (-1, -1), 1, colors.HexColor("#1F3864")),
+        ("LINEABOVE",   (0, -1), (-1, -1), 1, colors.black),
     ]))
 
     story.append(tabla)
+
+    # --- Firma del cajero, al final del documento ---
+    if cajero:
+        story.append(Spacer(1, 1.8 * cm))
+        story.append(Paragraph("_" * 40, firma_style))
+        story.append(Paragraph(cajero, firma_style))
+
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -119,8 +227,12 @@ def ordenar_pdf(request):
     if not filas:
         return Response({"error": "No se encontraron filas válidas en el PDF."}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
+    logo_buffer = _extraer_logo(pdf_bytes)
+    fecha_caja = _extraer_fecha_caja(pdf_bytes)
+    cajero = _extraer_cajero(pdf_bytes)
+
     df_ordenado = _ordenar_filas(filas)
-    pdf_buffer = _generar_pdf(df_ordenado)
+    pdf_buffer = _generar_pdf(df_ordenado, logo_buffer, fecha_caja, cajero)
 
     response = HttpResponse(pdf_buffer, content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="caja_ordenado.pdf"'

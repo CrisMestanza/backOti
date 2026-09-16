@@ -2,7 +2,8 @@ import io
 import re
 import pdfplumber
 import pandas as pd
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4
+from PIL import Image as PILImage
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
@@ -45,16 +46,17 @@ def _extraer_logo(pdf_bytes):
             if not page.images:
                 return None
             img_obj = page.images[0]
+            margen = 2  # pequeño margen para no recortar el borde del sello
             bbox = (
-                max(img_obj["x0"], 0),
-                max(img_obj["top"], 0),
-                min(img_obj["x1"], page.width),
-                min(img_obj["bottom"], page.height),
+                max(img_obj["x0"] - margen, 0),
+                max(img_obj["top"] - margen, 0),
+                min(img_obj["x1"] + margen, page.width),
+                min(img_obj["bottom"] + margen, page.height),
             )
             if bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
                 return None
             recorte = page.crop(bbox)
-            render = recorte.to_image(resolution=200)
+            render = recorte.to_image(resolution=400)
             buf = io.BytesIO()
             render.original.save(buf, format="PNG")
             buf.seek(0)
@@ -94,7 +96,7 @@ def _generar_pdf(df, logo_buffer=None, fecha_caja="", cajero=""):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=landscape(A4),
+        pagesize=A4,
         leftMargin=1.5 * cm,
         rightMargin=1.5 * cm,
         topMargin=1.5 * cm,
@@ -128,9 +130,17 @@ def _generar_pdf(df, logo_buffer=None, fecha_caja="", cajero=""):
     # --- Cabecera: logo (recortado del PDF original) + nombre de la universidad ---
     if logo_buffer is not None:
         try:
-            logo_img = RLImage(logo_buffer, width=2.3 * cm, height=2.3 * cm)
+            logo_buffer.seek(0)
+            with PILImage.open(logo_buffer) as img_pil:
+                img_w, img_h = img_pil.size
+            logo_buffer.seek(0)
+
+            ancho_logo = 2.6 * cm
+            alto_logo = ancho_logo * (img_h / img_w) if img_w else ancho_logo
+
+            logo_img = RLImage(logo_buffer, width=ancho_logo, height=alto_logo)
             fila_logo = [[logo_img, Paragraph("UNIVERSIDAD NACIONAL<br/>DE SAN MARTÍN", nombre_uni_style)]]
-            tabla_logo = Table(fila_logo, colWidths=[2.8 * cm, ancho_disponible - 2.8 * cm])
+            tabla_logo = Table(fila_logo, colWidths=[ancho_logo + 0.3 * cm, ancho_disponible - ancho_logo - 0.3 * cm])
             tabla_logo.setStyle(TableStyle([
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -177,7 +187,8 @@ def _generar_pdf(df, logo_buffer=None, fecha_caja="", cajero=""):
     data.append(["", "", "", Paragraph("<b>TOTAL</b>", cell_style),
                   Paragraph(f"<b>{total:,.2f}</b>", cell_style), ""])
 
-    col_widths = [3.2 * cm, 2.2 * cm, 5.0 * cm, 8.5 * cm, 2.2 * cm, 2.5 * cm]
+    fracciones_col = [0.145, 0.10, 0.19, 0.335, 0.10, 0.13]
+    col_widths = [ancho_disponible * f for f in fracciones_col]
     tabla = Table(data, colWidths=col_widths, repeatRows=1)
     tabla.setStyle(TableStyle([
         ("BACKGROUND",  (0, 0), (-1, 0), colors.black),

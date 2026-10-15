@@ -329,6 +329,7 @@ def getEncuestas(request):
 
     query = """
         select*from Intranet.Survey s
+        order by s.CreatedDate desc
     """
 
     with connection.cursor() as cursor:

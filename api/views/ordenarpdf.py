@@ -17,12 +17,6 @@ from django.http import HttpResponse
 
 FECHA_REGEX = re.compile(r'\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+del\s+\d{4}', re.IGNORECASE)
 
-# Comprobantes tipo "V001-00012345", "Z001-00031732", etc. (prefijo + guion + correlativo)
-NRO_REGEX = re.compile(r'^[A-Za-z]+\d*-\d+$')
-
-N_COLUMNAS = 6
-COLUMNAS = ["NRO", "FECHA_EMISION", "NOMBRE", "CONCEPTO", "ENTRADA", "TIPO_PAGO"]
-
 
 def _extraer_filas(pdf_bytes):
     filas = []
@@ -32,26 +26,16 @@ def _extraer_filas(pdf_bytes):
                 for row in table:
                     if not row or not row[0]:
                         continue
-                    nro = re.sub(r'\s+', '', str(row[0]))
-                    if not NRO_REGEX.match(nro):
-                        continue
-                    fila = list(row)
-                    fila[0] = nro
-                    if len(fila) < N_COLUMNAS:
-                        fila += [""] * (N_COLUMNAS - len(fila))
-                    elif len(fila) > N_COLUMNAS:
-                        fila = fila[:N_COLUMNAS]
-                    filas.append(fila)
+                    nro = str(row[0]).strip()
+                    if nro.startswith("V"):
+                        filas.append(row)
     return filas
 
 
 def _ordenar_filas(filas):
-    df = pd.DataFrame(filas, columns=COLUMNAS)
+    df = pd.DataFrame(filas, columns=["NRO", "FECHA_EMISION", "NOMBRE", "CONCEPTO", "ENTRADA", "TIPO_PAGO"])
     df["NRO"] = df["NRO"].astype(str).str.strip()
-    df["FECHA_EMISION"] = df["FECHA_EMISION"].astype(str).str.strip()
-    df["_FECHA_ORDEN"] = pd.to_datetime(df["FECHA_EMISION"], format="%d/%m/%Y", errors="coerce")
-    df = df.sort_values(["_FECHA_ORDEN", "NRO"], na_position="last")
-    return df.drop(columns="_FECHA_ORDEN").reset_index(drop=True)
+    return df.sort_values("NRO").reset_index(drop=True)
 
 
 def _extraer_logo(pdf_bytes):

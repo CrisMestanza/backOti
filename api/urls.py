@@ -6,6 +6,7 @@ from .views.pagosComedor import *
 from .views.encuesta import *
 from .views.egresados import *
 from .views.ordenarpdf import ordenar_pdf
+from .views.ordenarpdf_fecha import ordenar_pdf_fecha
 from .views.escuela import *
 from .views.boletas import *
 
@@ -45,7 +46,8 @@ urlpatterns = [
 
     # Ordenar PDF de caja
     path('ordenarpdf/', ordenar_pdf),
-    
+    path('ordenarpdf-fecha/', ordenar_pdf_fecha),
+
     # Egresados
     path('getegresados/', getEgresados),
     path('getegresado/<str:dni>/', getEgresado),

@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import HttpResponse
 
-from .ordenarpdf import _extraer_logo, _extraer_fecha_caja, _extraer_cajero, _generar_pdf
+from .ordenarpdf import _extraer_fecha_caja, _extraer_cajero, _generar_pdf
 
 # Comprobantes tipo "Z001-00031732", "V001-00012345", etc. (prefijo + guion + correlativo)
 NRO_REGEX = re.compile(r'^[A-Za-z]+\d*-\d+$')
@@ -64,12 +64,11 @@ def ordenar_pdf_fecha(request):
     if not filas:
         return Response({"error": "No se encontraron filas válidas en el PDF."}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
-    logo_buffer = _extraer_logo(pdf_bytes)
     fecha_caja = _extraer_fecha_caja(pdf_bytes)
     cajero = _extraer_cajero(pdf_bytes)
 
     df_ordenado = _ordenar_filas(filas)
-    pdf_buffer = _generar_pdf(df_ordenado, logo_buffer, fecha_caja, cajero)
+    pdf_buffer = _generar_pdf(df_ordenado, fecha_caja, cajero)
 
     response = HttpResponse(pdf_buffer, content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="caja_ordenado_por_fecha.pdf"'

@@ -1,4 +1,5 @@
 import io
+import os
 import re
 import pdfplumber
 import pandas as pd
@@ -16,6 +17,9 @@ from rest_framework import status
 from django.http import HttpResponse
 
 FECHA_REGEX = re.compile(r'\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+del\s+\d{4}', re.IGNORECASE)
+
+LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "logo_unsm.png")
+VERDE_UNSM = colors.HexColor("#15803d")
 
 
 def _extraer_filas(pdf_bytes):
@@ -36,33 +40,6 @@ def _ordenar_filas(filas):
     df = pd.DataFrame(filas, columns=["NRO", "FECHA_EMISION", "NOMBRE", "CONCEPTO", "ENTRADA", "TIPO_PAGO"])
     df["NRO"] = df["NRO"].astype(str).str.strip()
     return df.sort_values("NRO").reset_index(drop=True)
-
-
-def _extraer_logo(pdf_bytes):
-    """Recorta y devuelve como imagen (PNG en memoria) el logo de la primera página del PDF original."""
-    try:
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            page = pdf.pages[0]
-            if not page.images:
-                return None
-            img_obj = page.images[0]
-            margen = 2  # pequeño margen para no recortar el borde del sello
-            bbox = (
-                max(img_obj["x0"] - margen, 0),
-                max(img_obj["top"] - margen, 0),
-                min(img_obj["x1"] + margen, page.width),
-                min(img_obj["bottom"] + margen, page.height),
-            )
-            if bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
-                return None
-            recorte = page.crop(bbox)
-            render = recorte.to_image(resolution=400)
-            buf = io.BytesIO()
-            render.original.save(buf, format="PNG")
-            buf.seek(0)
-            return buf
-    except Exception:
-        return None
 
 
 def _extraer_fecha_caja(pdf_bytes):
@@ -92,7 +69,7 @@ def _extraer_cajero(pdf_bytes):
         return ""
 
 
-def _generar_pdf(df, logo_buffer=None, fecha_caja="", cajero=""):
+def _generar_pdf(df, fecha_caja="", cajero=""):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -106,8 +83,8 @@ def _generar_pdf(df, logo_buffer=None, fecha_caja="", cajero=""):
 
     styles = getSampleStyleSheet()
     nombre_uni_style = ParagraphStyle(
-        "nombre_uni", parent=styles["Normal"], fontSize=13, leading=15,
-        fontName="Helvetica-Bold", textColor=colors.black,
+        "nombre_uni", parent=styles["Normal"], fontSize=13, leading=14.5,
+        fontName="Helvetica-Bold", textColor=VERDE_UNSM,
     )
     titulo_style = ParagraphStyle(
         "titulo", parent=styles["Title"], fontSize=22, textColor=colors.black,
@@ -127,30 +104,38 @@ def _generar_pdf(df, logo_buffer=None, fecha_caja="", cajero=""):
 
     story = []
 
-    # --- Cabecera: logo (recortado del PDF original) + nombre de la universidad ---
-    if logo_buffer is not None:
-        try:
-            logo_buffer.seek(0)
-            with PILImage.open(logo_buffer) as img_pil:
-                img_w, img_h = img_pil.size
-            logo_buffer.seek(0)
+    # --- Cabecera: logo institucional + nombre de la universidad (estilo oficial) ---
+    try:
+        ancho_logo = 1.4 * cm
+        with PILImage.open(LOGO_PATH) as img_pil:
+            img_w, img_h = img_pil.size
+        alto_logo = ancho_logo * (img_h / img_w) if img_w else ancho_logo
 
-            ancho_logo = 2.6 * cm
-            alto_logo = ancho_logo * (img_h / img_w) if img_w else ancho_logo
+        logo_img = RLImage(LOGO_PATH, width=ancho_logo, height=alto_logo)
 
-            logo_img = RLImage(logo_buffer, width=ancho_logo, height=alto_logo)
-            fila_logo = [[logo_img, Paragraph("UNIVERSIDAD NACIONAL<br/>DE SAN MARTÍN", nombre_uni_style)]]
-            tabla_logo = Table(fila_logo, colWidths=[ancho_logo + 0.3 * cm, ancho_disponible - ancho_logo - 0.3 * cm])
-            tabla_logo.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ]))
-            story.append(tabla_logo)
-        except Exception:
-            story.append(Paragraph("UNIVERSIDAD NACIONAL DE SAN MARTÍN", nombre_uni_style))
-    else:
+        barra = Table([[""]], colWidths=[0.05 * cm], rowHeights=[alto_logo])
+        barra.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), VERDE_UNSM),
+        ]))
+
+        texto_uni = Paragraph("UNIVERSIDAD NACIONAL<br/>DE SAN MARTÍN", nombre_uni_style)
+
+        fila_logo = [[logo_img, barra, texto_uni]]
+        tabla_logo = Table(
+            fila_logo,
+            colWidths=[ancho_logo + 0.25 * cm, 0.4 * cm, ancho_disponible - ancho_logo - 0.65 * cm],
+        )
+        tabla_logo.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (0, 0), 0),
+            ("RIGHTPADDING", (1, 0), (1, 0), 0),
+            ("LEFTPADDING", (2, 0), (2, 0), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(tabla_logo)
+    except Exception:
         story.append(Paragraph("UNIVERSIDAD NACIONAL DE SAN MARTÍN", nombre_uni_style))
 
     story.append(Spacer(1, 0.5 * cm))
@@ -238,12 +223,11 @@ def ordenar_pdf(request):
     if not filas:
         return Response({"error": "No se encontraron filas válidas en el PDF."}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
-    logo_buffer = _extraer_logo(pdf_bytes)
     fecha_caja = _extraer_fecha_caja(pdf_bytes)
     cajero = _extraer_cajero(pdf_bytes)
 
     df_ordenado = _ordenar_filas(filas)
-    pdf_buffer = _generar_pdf(df_ordenado, logo_buffer, fecha_caja, cajero)
+    pdf_buffer = _generar_pdf(df_ordenado, fecha_caja, cajero)
 
     response = HttpResponse(pdf_buffer, content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="caja_ordenado.pdf"'

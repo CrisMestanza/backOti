@@ -1,6 +1,8 @@
 import io
 import os
 import re
+import logging
+import traceback
 import pdfplumber
 import pandas as pd
 from reportlab.lib.pagesizes import A4
@@ -15,6 +17,8 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import HttpResponse
+
+logger = logging.getLogger(__name__)
 
 FECHA_REGEX = re.compile(r'\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+del\s+\d{4}', re.IGNORECASE)
 
@@ -218,16 +222,24 @@ def ordenar_pdf(request):
         return Response({"error": "El archivo debe ser un PDF."}, status=status.HTTP_400_BAD_REQUEST)
 
     pdf_bytes = archivo.read()
-    filas = _extraer_filas(pdf_bytes)
 
-    if not filas:
-        return Response({"error": "No se encontraron filas válidas en el PDF."}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    try:
+        filas = _extraer_filas(pdf_bytes)
 
-    fecha_caja = _extraer_fecha_caja(pdf_bytes)
-    cajero = _extraer_cajero(pdf_bytes)
+        if not filas:
+            return Response({"error": "No se encontraron filas válidas en el PDF."}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
-    df_ordenado = _ordenar_filas(filas)
-    pdf_buffer = _generar_pdf(df_ordenado, fecha_caja, cajero)
+        fecha_caja = _extraer_fecha_caja(pdf_bytes)
+        cajero = _extraer_cajero(pdf_bytes)
+
+        df_ordenado = _ordenar_filas(filas)
+        pdf_buffer = _generar_pdf(df_ordenado, fecha_caja, cajero)
+    except Exception:
+        logger.error("Error procesando PDF en ordenar_pdf:\n%s", traceback.format_exc())
+        return Response(
+            {"error": "Ocurrió un error al procesar el PDF. Intenta nuevamente o avisa a soporte."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
     response = HttpResponse(pdf_buffer, content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="caja_ordenado.pdf"'

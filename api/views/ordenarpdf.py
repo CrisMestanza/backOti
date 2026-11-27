@@ -135,6 +135,10 @@ def _generar_pdf(df, fecha_caja="", cajero=""):
         "cell", parent=styles["Normal"], fontSize=7.5, leading=10,
         wordWrap="CJK", textColor=colors.black,
     )
+    grupo_style = ParagraphStyle(
+        "grupo", parent=styles["Normal"], fontSize=11, leading=13,
+        fontName="Helvetica-Bold", textColor=colors.black,
+    )
     firma_style = ParagraphStyle(
         "firma", parent=styles["Normal"], fontSize=10, alignment=1, textColor=colors.black,
     )
@@ -188,50 +192,68 @@ def _generar_pdf(df, fecha_caja="", cajero=""):
     story.append(tabla_titulo)
     story.append(Spacer(1, 0.4 * cm))
 
-    data = [["NRO", "FECHA\nEMISIÓN", "NOMBRE", "CONCEPTO", "ENTRADA", "TIPO PAGO"]]
-    total = 0.0
-
-    for _, row in df.iterrows():
-        entrada_str = str(row["ENTRADA"]).replace(",", ".").strip() if row["ENTRADA"] else "0"
-        try:
-            total += float(entrada_str)
-        except ValueError:
-            pass
-        data.append([
-            Paragraph(str(row["NRO"]), cell_style),
-            Paragraph(str(row["FECHA_EMISION"]).strip(), cell_style),
-            Paragraph(str(row["NOMBRE"]).strip(), cell_style),
-            Paragraph(str(row["CONCEPTO"]).strip(), cell_style),
-            Paragraph(entrada_str, cell_style),
-            Paragraph(str(row["TIPO_PAGO"]).strip(), cell_style),
-        ])
-
-    data.append(["", "", "", Paragraph("<b>TOTAL</b>", cell_style),
-                  Paragraph(f"<b>{total:,.2f}</b>", cell_style), ""])
-
     fracciones_col = [0.145, 0.10, 0.19, 0.335, 0.10, 0.13]
     col_widths = [ancho_disponible * f for f in fracciones_col]
-    tabla = Table(data, colWidths=col_widths, repeatRows=1)
-    tabla.setStyle(TableStyle([
-        ("BACKGROUND",  (0, 0), (-1, 0), colors.black),
-        ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
-        ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE",    (0, 0), (-1, 0), 8),
-        ("ALIGN",       (0, 0), (-1, 0), "CENTER"),
-        ("VALIGN",      (0, 0), (-1, 0), "MIDDLE"),
-        ("FONTNAME",    (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE",    (0, 1), (-1, -1), 7.5),
-        ("VALIGN",      (0, 1), (-1, -1), "MIDDLE"),
-        ("ALIGN",       (4, 1), (4, -1), "RIGHT"),
-        ("TEXTCOLOR",   (0, 1), (-1, -1), colors.black),
-        *[("BACKGROUND", (0, i), (-1, i), colors.HexColor("#F2F2F2")) for i in range(2, len(data) - 1, 2)],
-        ("GRID",        (0, 0), (-1, -1), 0.4, colors.black),
-        ("BACKGROUND",  (0, -1), (-1, -1), colors.HexColor("#E0E0E0")),
-        ("FONTNAME",    (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("LINEABOVE",   (0, -1), (-1, -1), 1, colors.black),
-    ]))
 
-    story.append(tabla)
+    def _tabla_comprobantes(df_subset):
+        data = [["NRO", "FECHA\nEMISIÓN", "NOMBRE", "CONCEPTO", "ENTRADA", "TIPO PAGO"]]
+        total = 0.0
+
+        for _, row in df_subset.iterrows():
+            entrada_str = str(row["ENTRADA"]).replace(",", ".").strip() if row["ENTRADA"] else "0"
+            try:
+                total += float(entrada_str)
+            except ValueError:
+                pass
+            data.append([
+                Paragraph(str(row["NRO"]), cell_style),
+                Paragraph(str(row["FECHA_EMISION"]).strip(), cell_style),
+                Paragraph(str(row["NOMBRE"]).strip(), cell_style),
+                Paragraph(str(row["CONCEPTO"]).strip(), cell_style),
+                Paragraph(entrada_str, cell_style),
+                Paragraph(str(row["TIPO_PAGO"]).strip(), cell_style),
+            ])
+
+        data.append(["", "", "", Paragraph("<b>TOTAL</b>", cell_style),
+                      Paragraph(f"<b>{total:,.2f}</b>", cell_style), ""])
+
+        tabla = Table(data, colWidths=col_widths, repeatRows=1)
+        tabla.setStyle(TableStyle([
+            ("BACKGROUND",  (0, 0), (-1, 0), colors.black),
+            ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
+            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE",    (0, 0), (-1, 0), 8),
+            ("ALIGN",       (0, 0), (-1, 0), "CENTER"),
+            ("VALIGN",      (0, 0), (-1, 0), "MIDDLE"),
+            ("FONTNAME",    (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE",    (0, 1), (-1, -1), 7.5),
+            ("VALIGN",      (0, 1), (-1, -1), "MIDDLE"),
+            ("ALIGN",       (4, 1), (4, -1), "RIGHT"),
+            ("TEXTCOLOR",   (0, 1), (-1, -1), colors.black),
+            *[("BACKGROUND", (0, i), (-1, i), colors.HexColor("#F2F2F2")) for i in range(2, len(data) - 1, 2)],
+            ("GRID",        (0, 0), (-1, -1), 0.4, colors.black),
+            ("BACKGROUND",  (0, -1), (-1, -1), colors.HexColor("#E0E0E0")),
+            ("FONTNAME",    (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("LINEABOVE",   (0, -1), (-1, -1), 1, colors.black),
+        ]))
+        return tabla
+
+    # --- Tabla(s) de comprobantes: una sola, o una por cada tipo de pago si hay más de uno ---
+    tipos_pago = df["TIPO_PAGO"].astype(str).str.strip()
+    grupos = sorted(
+        g for g in tipos_pago.unique()
+        if g and g.lower() not in ("none", "nan")
+    )
+
+    if len(grupos) > 1:
+        for i, grupo in enumerate(grupos):
+            if i > 0:
+                story.append(Spacer(1, 0.5 * cm))
+            story.append(Paragraph(grupo.upper(), grupo_style))
+            story.append(Spacer(1, 0.15 * cm))
+            story.append(_tabla_comprobantes(df[tipos_pago == grupo]))
+    else:
+        story.append(_tabla_comprobantes(df))
 
     # --- Resumen por tipo de pago (Efectivo / Voucher / POS, etc.) ---
     resumen = _resumen_tipo_pago(df)

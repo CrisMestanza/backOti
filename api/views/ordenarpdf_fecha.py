@@ -33,7 +33,7 @@ def _extraer_filas(pdf_bytes):
                     nro = re.sub(r'\s+', '', str(row[0]))
                     if not NRO_REGEX.match(nro):
                         continue
-                    fila = list(row)
+                    fila = [celda if celda is not None else "" for celda in row]
                     fila[0] = nro
                     if len(fila) < N_COLUMNAS:
                         fila += [""] * (N_COLUMNAS - len(fila))

@@ -25,6 +25,14 @@ FECHA_REGEX = re.compile(r'\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+de
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "logo_unsm.png")
 VERDE_UNSM = colors.HexColor("#15803d")
 
+# Comprobantes tipo "V019-00035468", "Z001-00031732", etc. (prefijo + guion + correlativo).
+# Evita que filas de otras tablas de la misma página (ej. el resumen "TIPO PAGO / MONTO",
+# cuya fila "Voucher" también empieza con "V") se cuelen como si fueran comprobantes.
+NRO_REGEX = re.compile(r'^[A-Za-z]+\d*-\d+$')
+
+N_COLUMNAS = 6
+COLUMNAS = ["NRO", "FECHA_EMISION", "NOMBRE", "CONCEPTO", "ENTRADA", "TIPO_PAGO"]
+
 
 def _extraer_filas(pdf_bytes):
     filas = []
@@ -34,16 +42,41 @@ def _extraer_filas(pdf_bytes):
                 for row in table:
                     if not row or not row[0]:
                         continue
-                    nro = str(row[0]).strip()
-                    if nro.startswith("V"):
-                        filas.append(row)
+                    nro = re.sub(r'\s+', '', str(row[0]))
+                    if not NRO_REGEX.match(nro):
+                        continue
+                    fila = [celda if celda is not None else "" for celda in row]
+                    fila[0] = nro
+                    if len(fila) < N_COLUMNAS:
+                        fila += [""] * (N_COLUMNAS - len(fila))
+                    elif len(fila) > N_COLUMNAS:
+                        fila = fila[:N_COLUMNAS]
+                    filas.append(fila)
     return filas
 
 
 def _ordenar_filas(filas):
-    df = pd.DataFrame(filas, columns=["NRO", "FECHA_EMISION", "NOMBRE", "CONCEPTO", "ENTRADA", "TIPO_PAGO"])
+    df = pd.DataFrame(filas, columns=COLUMNAS)
     df["NRO"] = df["NRO"].astype(str).str.strip()
     return df.sort_values("NRO").reset_index(drop=True)
+
+
+def _resumen_tipo_pago(df):
+    """Agrupa el ENTRADA por TIPO_PAGO para reconstruir el cuadro previo a la firma."""
+    tipos = df["TIPO_PAGO"].astype(str).str.strip()
+    montos = pd.to_numeric(
+        df["ENTRADA"].astype(str).str.replace(",", ".", regex=False), errors="coerce"
+    ).fillna(0.0)
+    valido = tipos.str.len().gt(0) & ~tipos.str.lower().isin(["none", "nan"])
+    if not valido.any():
+        return []
+    return (
+        pd.DataFrame({"TIPO_PAGO": tipos[valido], "MONTO": montos[valido]})
+        .groupby("TIPO_PAGO", sort=True)["MONTO"]
+        .sum()
+        .reset_index()
+        .values.tolist()
+    )
 
 
 def _extraer_fecha_caja(pdf_bytes):
@@ -199,6 +232,32 @@ def _generar_pdf(df, fecha_caja="", cajero=""):
     ]))
 
     story.append(tabla)
+
+    # --- Resumen por tipo de pago (Efectivo / Voucher / POS, etc.) ---
+    resumen = _resumen_tipo_pago(df)
+    if resumen:
+        data_resumen = [["TIPO PAGO", "MONTO"]]
+        for tipo_pago, monto in resumen:
+            data_resumen.append([
+                Paragraph(str(tipo_pago), cell_style),
+                Paragraph(f"{monto:,.2f}", cell_style),
+            ])
+
+        tabla_resumen = Table(
+            data_resumen,
+            colWidths=[ancho_disponible * 0.5, ancho_disponible * 0.5],
+        )
+        tabla_resumen.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E0E0E0")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.black),
+        ]))
+        story.append(Spacer(1, 0.6 * cm))
+        story.append(tabla_resumen)
 
     # --- Firma del cajero, al final del documento ---
     if cajero:
